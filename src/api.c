@@ -910,7 +910,13 @@ int cgroup_init(void)
 	}
 	controllers[i] = NULL;
 
-	proc_mount = fopen("/proc/mounts", "re");
+        struct stat st;
+        if (stat("/var/run/mounts", &st) == 0) {
+            proc_mount = fopen("/var/run/mounts", "re");
+        } else {
+            proc_mount = fopen("/proc/mounts", "re");
+        }
+
 	if (proc_mount == NULL) {
 		ret = ECGFAIL;
 		goto unlock_exit;
