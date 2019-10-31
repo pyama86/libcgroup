@@ -35,32 +35,29 @@
 
 static struct cgroup_string_list cfg_files;
 
-static void usage(int status, char *progname)
+static void usage(char *progname)
 {
-	if (status != 0) {
-		fprintf(stderr, "Wrong input parameters, "\
-			"try %s -h' for more information.\n", progname);
-		return;
-	}
 	printf("Usage: %s [-h] [-f mode] [-d mode] [-s mode] "\
-		"[-t <tuid>:<tgid>] [-a <agid>:<auid>] [-l FILE] "\
-		"[-L DIR] ...\n", progname);
+			"[-t <tuid>:<tgid>] [-a <agid>:<auid>] "\
+			"[-l FILE] [-L directory] ...\n", basename(progname));
 	printf("Parse and load the specified cgroups configuration file\n");
-	printf("  -a <tuid>:<tgid>		Default owner of groups files "\
-		"and directories\n");
-	printf("  -d, --dperm=mode		Default group directory "\
-		"permissions\n");
-	printf("  -f, --fperm=mode		Default group file "\
-		"permissions\n");
+	printf("\n");
 	printf("  -h, --help			Display this help\n");
-	printf("  -l, --load=FILE		Parse and load the cgroups "\
-		"configuration file\n");
-	printf("  -L, --load-directory=DIR	Parse and load the cgroups "\
-		"configuration files from a directory\n");
-	printf("  -s, --tperm=mode		Default tasks file "\
-		"permissions\n");
-	printf("  -t <tuid>:<tgid>		Default owner of the tasks "\
-		"file\n");
+	printf("  -l, --load=FILE		Parse and load the cgroups"\
+			" configuration file\n");
+	printf("  -L, --load-directory=DIR	Parse and load the cgroups"\
+			" configuration files from a directory\n");
+	printf("  -a <tuid>:<tgid>		Default owner of groups files"\
+			" and directories\n");
+	printf("  -d, --dperm=mode		Default group directory"\
+			" permissions\n");
+	printf("  -f, --fperm=mode		Default group file"\
+			" permissions\n");
+	printf("  -s --tperm=mode		Default tasks file"
+			" permissions\n");
+	printf("  -t <tuid>:<tgid>		Default owner of the tasks "
+			"file\n");
+	exit(2);
 }
 
 int main(int argc, char *argv[])
@@ -87,30 +84,23 @@ int main(int argc, char *argv[])
 	int filem_change = 0;
 	struct cgroup *default_group = NULL;
 
-	cgroup_set_default_logger(-1);
+	if (argc < 2)
+		usage(argv[0]); /* usage() exits */
 
-	if (argc < 2) {
-		usage(1, argv[0]);
-		return -1;
-	}
-
-	error = cgroup_string_list_init(&cfg_files, argc/2);
-	if (error)
-		goto err;
+	ret = cgroup_string_list_init(&cfg_files, argc/2);
 
 	while ((c = getopt_long(argc, argv, "hl:L:t:a:d:f:s:", options,
 			NULL)) > 0) {
 		switch (c) {
 		case 'h':
-			usage(0, argv[0]);
-			error = 0;
-			goto err;
+			usage(argv[0]);
+			break;
 		case 'l':
-			error = cgroup_string_list_add_item(&cfg_files, optarg);
-			if (error) {
+			ret = cgroup_string_list_add_item(&cfg_files, optarg);
+			if (ret) {
 				fprintf(stderr, "%s: cannot add file to list,"\
 						" out of memory?\n", argv[0]);
-				goto err;
+				exit(1);
 			}
 			break;
 		case 'L':
@@ -119,51 +109,35 @@ int main(int argc, char *argv[])
 			break;
 		case 'a':
 			/* set admin uid/gid */
-			error = parse_uid_gid(optarg, &auid, &agid, argv[0]);
-			if (error)
+			if (parse_uid_gid(optarg, &auid, &agid, argv[0]))
 				goto err;
 			break;
 		case 't':
 			/* set task uid/gid */
-			error = parse_uid_gid(optarg, &tuid, &tgid, argv[0]);
-			if (error)
+			if (parse_uid_gid(optarg, &tuid, &tgid, argv[0]))
 				goto err;
 			break;
 		case 'd':
 			dirm_change = 1;
-			error = parse_mode(optarg, &dir_mode, argv[0]);
-			if (error)
-				goto err;
+			ret = parse_mode(optarg, &dir_mode, argv[0]);
 			break;
 		case 'f':
 			filem_change = 1;
-			error = parse_mode(optarg, &file_mode, argv[0]);
-			if (error)
-				goto err;
+			ret = parse_mode(optarg, &file_mode, argv[0]);
 			break;
 		case 's':
 			filem_change = 1;
-			error = parse_mode(optarg, &tasks_mode, argv[0]);
-			if (error)
-				goto err;
+			ret = parse_mode(optarg, &tasks_mode, argv[0]);
 			break;
 		default:
-			usage(1, argv[0]);
-			error = -1;
-			goto err;
+			usage(argv[0]);
+			break;
 		}
-	}
-
-	if (argv[optind]) {
-		usage(1, argv[0]);
-		error = -1;
-		goto err;
 	}
 
 	/* set default permissions */
 	default_group = cgroup_new_cgroup("default");
 	if (!default_group) {
-		error = -1;
 		fprintf(stderr, "%s: cannot create default cgroup\n", argv[0]);
 		goto err;
 	}
@@ -171,8 +145,8 @@ int main(int argc, char *argv[])
 	error = cgroup_set_uid_gid(default_group, tuid, tgid, auid, agid);
 	if (error) {
 		fprintf(stderr, "%s: cannot set default UID and GID: %s\n",
-				argv[0], cgroup_strerror(error));
-		goto free_cgroup;
+				argv[0], cgroup_strerror(ret));
+		goto err;
 	}
 
 	if (dirm_change | filem_change) {
@@ -183,8 +157,8 @@ int main(int argc, char *argv[])
 	error = cgroup_config_set_default(default_group);
 	if (error) {
 		fprintf(stderr, "%s: cannot set config parser defaults: %s\n",
-				argv[0], cgroup_strerror(error));
-		goto free_cgroup;
+				argv[0], cgroup_strerror(ret));
+		goto err;
 	}
 
 	for (i = 0; i < cfg_files.count; i++) {
@@ -198,9 +172,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-free_cgroup:
-	cgroup_free(&default_group);
 err:
+	cgroup_free(&default_group);
 	cgroup_string_list_free(&cfg_files);
 	return error;
 }

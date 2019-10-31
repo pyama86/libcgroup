@@ -29,12 +29,12 @@ print the variables for all controllers which consist in the  given cgroup
 
 .TP
 .B -g <controller>
-defines controllers whose values should be displayed.
+defines controller which values should be displaied.
 This option can be used multiple times.
 
 .TP
 .B -g <controller>:<path>
-defines control groups whose values should be displayed.
+defines control groups which values should be displaied.
 This option can be used multiple times.
 
 .TP
@@ -85,12 +85,6 @@ cpu.shares=1024
 
 .fi
 
-.SH ENVIRONMENT VARIABLES
-.TP
-.B CGROUP_LOGLEVEL
-controls verbosity of the tool. Allowed values are \fBDEBUG\fR,
-\fBINFO\fR, \fBWARNING\fR or \fBERROR\fR.
-
 .SH SEE ALSO
-cgrules.conf (1), cgcreate (1), cgget (1)
+cgsules.conf (1), cgcreate (1), cgget (1)
 
